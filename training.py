@@ -1,0 +1,83 @@
+import os
+from pprint import pprint
+
+import lightning as L
+import torch
+import wandb
+from lightning.pytorch import seed_everything
+from lightning.pytorch.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
+
+from configs import PatchFMConfig, TrainConfig, DSPathsConfig
+from dataset import get_dataset
+from utils import get_model_name, get_model
+
+
+def main():
+
+    seed_everything(0, workers=True)
+
+    train_cfg = TrainConfig()
+    dspaths_cfg = DSPathsConfig()
+    model_cfg = PatchFMConfig(normalization_strategy="causal", use_asinh=True)
+
+    model_name = get_model_name(model_cfg)
+    ckpt_path = os.path.join(train_cfg.checkpoint_path, model_name)
+    print(f"Checkpoint path: {ckpt_path}")
+    os.makedirs(ckpt_path, exist_ok=True)
+
+    assert (
+        train_cfg.seq_len % model_cfg.patch_len == 0
+    ), f"Sequence length ({train_cfg.seq_len}) must be divisible by patch length ({model_cfg.patch_len})."
+
+    print("---------")
+    print("Model Configuration:")
+    pprint(model_cfg.__dict__, sort_dicts=False)
+
+    print("Training Configuration:")
+    pprint(train_cfg.__dict__, sort_dicts=False)
+    print("---------")
+
+    wandb_logger = WandbLogger(project="PatchFM", name=f"pretraining")
+
+    wandb_logger.model_config = model_cfg
+    wandb_logger.train_config = train_cfg
+
+    checkpoint_callback = ModelCheckpoint(
+        save_top_k=-1,
+        save_last=True,
+        dirpath=ckpt_path,
+        filename="patchfm-{epoch:02d}",
+        save_on_train_epoch_end=True,
+    )
+
+    model = get_model(train_cfg=train_cfg, model_cfg=model_cfg)
+
+    trainset = get_dataset(seq_len=train_cfg.seq_len, normalize=True, dspaths_cfg=dspaths_cfg)
+    trainloader = torch.utils.data.DataLoader(
+        trainset,
+        batch_size=train_cfg.batch_size,
+        shuffle=True,
+        num_workers=train_cfg.num_workers,
+        pin_memory=train_cfg.pin_memory,
+    )
+    train_cfg.len_loader = len(trainloader)
+
+    trainer = L.Trainer(
+        max_epochs=train_cfg.epochs,
+        enable_checkpointing=True,
+        log_every_n_steps=100,
+        accelerator="gpu",
+        devices=train_cfg.gpus,
+        num_nodes=train_cfg.num_nodes,
+        strategy=train_cfg.strategy,
+        fast_dev_run=True,
+        callbacks=[checkpoint_callback],
+        logger=wandb_logger,
+    )
+    trainer.fit(model=model, train_dataloaders=trainloader)
+
+    wandb.finish()
+
+if __name__ == "__main__":
+    main()

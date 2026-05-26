@@ -28,7 +28,8 @@ def get_model(model_cfg, train_cfg, eval_cfg):
     else:
         raise ValueError(f"Unknown normalization strategy: {model_cfg.normalization_strategy}")
 
-    ckpt_path = os.path.join(train_cfg.checkpoint_path, get_model_name(model_cfg), f"patchfm-epoch={eval_cfg.load_epoch}.ckpt")
+    #ckpt_path = os.path.join(train_cfg.checkpoint_path, get_model_name(model_cfg), f"patchfm-epoch={eval_cfg.load_epoch}.ckpt")
+    ckpt_path = os.path.join(train_cfg.checkpoint_path, get_model_name(model_cfg), f"patchfm-epoch=18---step-step=285000.ckpt")
     print(f"Loading model from {ckpt_path}...")
     state_dict = torch.load(ckpt_path, map_location="cpu", weights_only=False)["state_dict"]
     for k in list(state_dict.keys()):

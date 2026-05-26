@@ -2,5 +2,5 @@ archive/
 *.ckpt
 pycache/
 .DS_Store
-fev_eval/
 *.pdf
+*.pyc

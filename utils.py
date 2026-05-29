@@ -32,6 +32,11 @@ def get_model_name(model_cfg):
             model_name = "optimal"
     elif model_cfg.normalization_strategy == "none":
         model_name = "none"
+    elif model_cfg.normalization_strategy == "causalpatch":
+        if model_cfg.use_asinh:
+            model_name = "causalsinhpatch"
+        else:
+            model_name = "causalpatch"
     else:
         raise ValueError(
             f"Invalid normalization strategy: {model_cfg.normalization_strategy}"

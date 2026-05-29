@@ -3,7 +3,7 @@ import torch.nn as nn
 from einops import rearrange
 from rotary_embedding_torch import RotaryEmbedding
 
-from model.inference.revin import CausalRevIN, RevIN, NoRevIN
+from model.inference.revin import CausalRevIN, RevIN, NoRevIN, CausalPatchRevIN
 
 
 class ResidualBlock(nn.Module):
@@ -140,6 +140,8 @@ class PatchFM(nn.Module):
 
         if normalization_strategy == "causal":
             self.revin = CausalRevIN(use_asinh=use_asinh)
+        elif normalization_strategy == "causalpatch":
+            self.revin = CausalPatchRevIN(use_asinh=use_asinh)
         elif normalization_strategy in ["vanilla", "prefix", "optimal"]:
             self.revin = RevIN(use_asinh=use_asinh)
         elif normalization_strategy == "none":

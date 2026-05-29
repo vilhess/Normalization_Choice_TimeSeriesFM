@@ -28,7 +28,6 @@ class ResidualBlock(nn.Module):
         out = out + res
         return out
 
-
 class FeedForward(nn.Module):
     def __init__(self, d_model, multiple_of=256):
         super().__init__()

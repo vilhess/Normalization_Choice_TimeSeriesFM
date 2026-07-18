@@ -145,10 +145,12 @@ class PatchFM(nn.Module):
         )
         self.n_quantiles = len(self.quantiles)
 
+        self.prefix_tokens = None
         if normalization_strategy == "causal":
             self.revin = CausalRevIN(use_asinh=use_asinh)
         elif normalization_strategy == "prefix":
             self.revin = PrefixRevIN(use_asinh=use_asinh, prefix_tokens=prefix_tokens)
+            self.prefix_tokens = prefix_tokens
         elif normalization_strategy == "vanilla":
             self.revin = RevIN(use_asinh=use_asinh)
         elif normalization_strategy == "none":
@@ -200,8 +202,7 @@ class PatchFM(nn.Module):
         x = rearrange(
             x, "b (pn pl) -> b pn pl", pl=self.patch_len
         )  # Reshape to (bs, patch_num, patch_len)
-        if self.training:
-            x_patch = x[:, 1:, :].clone().detach()
+        x_patch = x[:, 1:, :].clone().detach()
         x = self.revin(x, mode="norm")
 
         x = self.proj_embedding(x)  # bs, pn, d_model
@@ -218,5 +219,9 @@ class PatchFM(nn.Module):
             pl=self.patch_len,
             q=self.n_quantiles,
         )  # Reshape to (bs, patch_len, n_quantiles)
+
+        if self.prefix_tokens is not None:
+            forecasting = forecasting[:, self.prefix_tokens-1:, :, :]
+            x_patch = x_patch[:, self.prefix_tokens-1:, :]
 
         return forecasting, x_patch

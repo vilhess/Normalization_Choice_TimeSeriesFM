@@ -185,8 +185,6 @@ class PatchFM(nn.Module):
         x = rearrange(
             x, "b (pn pl) -> b pn pl", pl=self.patch_len
         )  # Reshape to (bs, patch_num, patch_len)
-        if self.training:
-            x_patch = x[:, 1:, :].clone().detach()
         x = self.revin(x, mode="norm")
 
         x = self.proj_embedding(x)  # bs, pn, d_model

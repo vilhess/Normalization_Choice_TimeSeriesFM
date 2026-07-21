@@ -4,7 +4,7 @@ from utils import get_model_name
 
 def get_model(model_cfg, train_cfg, eval_cfg):
 
-    if model_cfg.normalization_strategy in ["none"]:
+    if model_cfg.normalization_strategy in ["none", "causal", "causalpatch"]:
         from model.inference.modules_kvcache import PatchFM
         model = PatchFM(
             normalization_strategy=model_cfg.normalization_strategy,
@@ -15,7 +15,7 @@ def get_model(model_cfg, train_cfg, eval_cfg):
             use_asinh=model_cfg.use_asinh,
         )
 
-    elif model_cfg.normalization_strategy in ["prefix", "vanilla", "optimal", "causal", "causalpatch"]:
+    elif model_cfg.normalization_strategy in ["prefix", "vanilla", "optimal"]:
         from model.inference.modules import PatchFM
         model = PatchFM(
             normalization_strategy=model_cfg.normalization_strategy,
@@ -27,7 +27,7 @@ def get_model(model_cfg, train_cfg, eval_cfg):
         )
     else:
         raise ValueError(f"Unknown normalization strategy: {model_cfg.normalization_strategy}")
-
+    
     #ckpt_path = os.path.join(train_cfg.checkpoint_path, get_model_name(model_cfg), f"patchfm-epoch={eval_cfg.load_epoch}.ckpt")
     ckpt_path = os.path.join(train_cfg.checkpoint_path, get_model_name(model_cfg), f"patchfm-epoch=18---step-step=285000.ckpt")
     print(f"Loading model from {ckpt_path}...")

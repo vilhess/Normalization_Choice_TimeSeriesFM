@@ -112,7 +112,7 @@ class CausalRevIN(nn.Module):
         Numerically stable mean and variance computation using 
         incremental mean and variance along the patch dimension.
         x: (B, PN, PL) float64
-        Returns: mean, std (both (B, L, 1))
+        Returns: mean, std (both (B, PN, PL))
         """
         B, PN, PL = x.shape
         x = rearrange(x, 'b pn pl -> b (pn pl)')  # Reshape to (B, L)

@@ -1,28 +1,3 @@
-"""Distribution-level divergence between the leak / no-leak embedding clouds.
-
-Complements embedding_distribution_gift.py: instead of the per-series PAIRED
-displacement, this compares the whole DISTRIBUTIONS of last-context-patch
-embeddings under the two RevIN regimes:
-
-  * leak (training regime):     RevIN stats from context+future (mu*, sigma*)
-  * no leak (inference regime): RevIN stats from the context only
-
-For each strategy the two clouds (N, d_model) are collected and their EXACT
-2-Wasserstein distance is computed (POT's ot.emd2: full optimal transport via
-network simplex -- tractable at this N, deterministic, and free of the
-projection noise of sliced W2 / the entropic bias of Sinkhorn).
-
-Latent scales differ across models, so embeddings are standardized per model
-(per-dim z-score with the pooled leak+noleak stats) before the metric.
-Each observed value is shown against a PERMUTATION NULL (random splits of the
-pooled cloud): two finite samples of the same distribution never score 0, so
-only the gap observed-vs-null is meaningful when comparing strategies. For
-EXACT W2 this matters even more than for sliced: empirical W2 converges as
-N^(-1/d), so at N~1e3 in d_model dims the raw value is dominated by the
-finite-sample floor -- the excess over the null is the effect
-(E[W2_emp^2] ~ W2_true^2 + floor^2, so obs^2 - null^2 estimates the true W2^2).
-"""
-
 import os
 import torch
 import numpy as np
@@ -67,8 +42,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -91,9 +64,6 @@ class inject_oracle_stats:
 
 @torch.inference_mode()
 def last_patch_embeddings(model, x, stats):
-    """Encoder output of the LAST context patch for a whole batch, via a
-    forward hook, with the RevIN statistics forced to `stats` = (mean, std),
-    each a (B,) tensor. Shape: (B, d_model)."""
     captured = {}
     handle = model.transformer_encoder.register_forward_hook(
         lambda _m, _inp, out: captured.__setitem__("emb", out)
@@ -106,8 +76,6 @@ def last_patch_embeddings(model, x, stats):
 
 @torch.inference_mode()
 def collect_clouds(model, loader):
-    """One pass over the dataset. Returns the two embedding clouds
-    (N, d_model): same contexts embedded under leak / no-leak stats."""
     leak_all, nolk_all = [], []
     C = (SEQ_PATCHES - HORIZON) * PATCH_LEN
     for data in tqdm(loader, leave=False):
@@ -131,9 +99,6 @@ def collect_clouds(model, loader):
 
 
 def exact_w2(A, B):
-    """Exact 2-Wasserstein between two clouds (numpy (N,d) arrays), uniform
-    weights: full OT plan via network simplex on the squared-Euclidean cost
-    matrix. emd2 returns W2^2 -> sqrt."""
     a = np.ones(len(A)) / len(A)
     b = np.ones(len(B)) / len(B)
     M = ot.dist(A, B, metric="sqeuclidean")
@@ -141,8 +106,6 @@ def exact_w2(A, B):
 
 
 def permutation_null(A, B, n_perm=N_PERM, seed=SEED):
-    """W2 between random equal-size splits of the pooled cloud: the
-    finite-sample floor each observed value must be read against."""
     pooled = np.concatenate([A, B])
     n = len(A)
     rng = np.random.default_rng(seed)
@@ -155,7 +118,7 @@ def permutation_null(A, B, n_perm=N_PERM, seed=SEED):
 
 def main():
 
-    out = "embedding_regime_divergence_gift.npz"
+    out = "results/embedding_regime_divergence_gift.npz"
     if os.path.exists(out):
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
@@ -230,7 +193,7 @@ def main():
         ax.set_xticks(np.arange(len(labels)))
         ax.set_xticklabels([LABEL_STYLE.get(l, (l,))[0] for l in labels],
                            fontsize=10, rotation=12)
-        ax.set_ylabel(r"exact $W_2$", fontsize=12)
+        ax.set_ylabel(r"$W_2$", fontsize=12)
         ax.grid(True, axis="y", alpha=0.25)
         ax.set_axisbelow(True)
         for spine in ("top", "right"):
@@ -239,12 +202,12 @@ def main():
                     label="permutation null (mean $\\pm$ 2 sd)")
         ax.legend(loc="upper left", frameon=False, fontsize=9)
 
-        ax.set_title("Exact $W_2$ between the leak / no-leak distributions "
+        ax.set_title("$W_2$ between the leak / no-leak distributions "
                      "of the last context-patch hidden state\n"
                      "(clouds standardized per model; read each bar against "
                      "its finite-sample null)", fontsize=11)
         fig.tight_layout()
-        out = "embedding_regime_divergence_gift.pdf"
+        out = "figs/embedding_regime_divergence_gift.pdf"
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

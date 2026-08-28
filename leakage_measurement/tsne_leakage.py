@@ -1,21 +1,3 @@
-"""Latent-space view of the normalization leak.
-
-For each normalization strategy, embed the SAME signals under the two stat
-regimes and see whether they land in the same region of latent space:
-
-  * leak (training regime):   RevIN stats computed on context+future (mu*, sigma*)
-  * no leak (inference regime): RevIN stats computed on the context only
-
-One signal per non-stationarity level ns; ONE target patch (N_TAR=1) and only
-the embedding of the LAST context patch is kept -- the vector the model uses
-to predict the target. Each panel then shows the trajectory of that vector as
-ns grows, under both regimes. If a model's representation depends on the
-leaked statistics (vanilla RevIN), the two trajectories should drift apart as
-ns grows; a leak-free representation (Prefix@k) should keep them overlaid.
-One t-SNE is fit PER strategy: latent spaces of different checkpoints are not
-mutually comparable, so panels are only comparable within themselves.
-"""
-
 import torch
 import numpy as np
 import matplotlib
@@ -74,9 +56,6 @@ REGIMES = {
 
 
 def make_series(length, level, seed=SEED):
-    """Increasing sinusoid "sin(x) + x" (cf ../tsne.py), one series (1, L).
-    `level` in [0, 1] scales BOTH the trend slope (increasing shape) and the
-    amplitude envelope (increasing magnitude); level=0 is a stationary sine."""
     g = torch.Generator().manual_seed(seed)
     x = torch.linspace(0.0, X_MAX, length)
     amplitude = 1.0 + level * AMP_GROWTH * x          # growing envelope
@@ -91,8 +70,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -115,9 +92,6 @@ class inject_oracle_stats:
 
 @torch.no_grad()
 def extract_last_patch_embedding(model, signal, stats):
-    """Encoder output of the LAST context patch (the vector used to predict
-    the target patch) via a forward hook, with the RevIN statistics forced to
-    `stats` = (mean, std), each a (B,) tensor. Shape: (d_model,)."""
     captured = {}
     handle = model.transformer_encoder.register_forward_hook(
         lambda _m, _inp, out: captured.__setitem__("emb", out)
@@ -193,7 +167,7 @@ def main():
                   r"$\Delta\sigma = |\log(\sigma_{\text{context+future}}/"
                   r"\sigma_{\text{context-only}})|$",
                   fontsize=13)
-    fig0.savefig("tsne_leakage_signals.pdf", dpi=130, bbox_inches="tight")
+    fig0.savefig("figs/tsne_leakage_signals.pdf", dpi=130, bbox_inches="tight")
 
     # ---- 2. per strategy: last-patch trajectory vs ns (t-SNE row, PCA row) --
     cmap = plt.cm.viridis
@@ -261,7 +235,7 @@ def main():
                   r"$\qquad\Delta\mu = |\mu_{\text{context+future}}-"
                   r"\mu_{\text{context-only}}|\,/\,\sigma_{\text{context+future}}$",
                   fontsize=16, fontweight="bold")
-    fig1.savefig("tsne_leakage.pdf", dpi=130, bbox_inches="tight")
+    fig1.savefig("figs/tsne_leakage.pdf", dpi=130, bbox_inches="tight")
 
     print("saved plots -> tsne_leakage_signals.pdf, tsne_leakage.pdf")
 

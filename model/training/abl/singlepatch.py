@@ -7,7 +7,7 @@ import lightning as L
 from lightning.pytorch.utilities import grad_norm
 
 
-class OptimalRevIN(nn.Module):
+class SinglePatchRevIN(nn.Module):
     def __init__(self, eps=1e-5, use_asinh=True):
         super().__init__()
         self.eps = eps
@@ -185,7 +185,7 @@ class PatchFM(nn.Module):
         )
         self.n_quantiles = len(self.quantiles)
 
-        self.revin = OptimalRevIN(use_asinh=use_asinh)
+        self.revin = SinglePatchRevIN(use_asinh=use_asinh)
 
         self.proj_embedding = ResidualBlock(
             in_dim=patch_len, hid_dim=2 * patch_len, out_dim=d_model, dropout=dropout

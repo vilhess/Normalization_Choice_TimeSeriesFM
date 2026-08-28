@@ -142,7 +142,7 @@ class PatchFM(nn.Module):
             self.revin = CausalRevIN(use_asinh=use_asinh)
         elif normalization_strategy == "causalpatch":
             self.revin = CausalPatchRevIN(use_asinh=use_asinh)
-        elif normalization_strategy in ["vanilla", "prefix", "optimal"]:
+        elif normalization_strategy in ["vanilla", "prefix", "singlepatch"]:
             self.revin = RevIN(use_asinh=use_asinh)
         elif normalization_strategy == "none":
             self.revin = NoRevIN()

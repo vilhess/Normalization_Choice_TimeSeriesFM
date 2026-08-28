@@ -1,31 +1,3 @@
-"""Inference speed and memory of each normalization strategy, with KV-cache
-reuse where the cache is valid.
-
-Two inference implementations of the same checkpoints:
-
-  * no cache (model/inference/modules.py): every rollout step re-embeds and
-    re-attends the WHOLE grown sequence, and the RevIN statistics are
-    recomputed on that grown sequence at each step.
-  * KV cache (model/inference/modules_kvcache.py): each step feeds only the
-    newly generated patch; the attention keys/values of past patches are
-    reused.
-
-Cached inference is only benchmarked for the CAUSAL strategies: their
-statistics never revisit past patches, so the cache is exact by
-construction (checked: max deviation of the median forecast ~1e-7).
-Full-window strategies (vanilla, prefix) would have to freeze their context
-statistics during the rollout, which alters the forecasts, so their cached
-variant is not reported.
-
-Both classes expose forecast() with the same rollout (9 quantile paths per
-series, next patch of path q = q-quantile of the pooled 81 values), so the
-variants perform the same computation and only the caching differs.
-
-Reported per strategy, batch size and horizon: latency and throughput as
-median +- IQR over the timed runs, and peak CUDA memory. Timing on
-synthetic gaussian inputs (the arithmetic is data-independent).
-"""
-
 import os
 import time
 import argparse
@@ -54,8 +26,6 @@ MODELS = [
     ("causal",  True,  None),
 ]
 
-# strategies whose statistics never revisit past patches: the KV cache is
-# exact for them, and only for them, so cached inference is theirs only
 CACHED_STRATEGIES = ("causal",)
 
 LABEL_STYLE = {

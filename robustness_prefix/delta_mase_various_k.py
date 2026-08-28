@@ -1,23 +1,3 @@
-"""Robustness to truncated normalization statistics, decomposed per
-statistic, on GIFT data.
-
-Same protocol as v1 -- the model always sees the FULL context (31 patches)
-and predicts the last patch, with RevIN statistics computed from only the
-first j patches -- but the truncation can now be applied to ONE statistic at
-a time, the other being kept at its full-context value:
-
-    --perturb both   mu and sigma from the first j patches (= v1)
-    --perturb mean   mu from the first j patches, sigma from the full context
-    --perturb std    sigma from the first j patches, mu from the full context
-
-    dMASE(j) = MASE(perturbed stats) - MASE(full-context stats)
-
-This isolates which statistic carries the damage. In particular, if the mild
-non-monotonicity along j observed in v1 (very small j slightly LESS harmful)
-disappears under --perturb mean, it is attributable to the underestimated
-sigma of short windows damping the denormalized output errors.
-"""
-
 import os
 import argparse
 import torch
@@ -67,8 +47,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -91,15 +69,12 @@ class inject_oracle_stats:
 
 @torch.inference_mode()
 def predict_next_patch(model, context, stats):
-    """Single-step forecast of the next patch (median quantile) with the
-    RevIN statistics forced to `stats` = (mean, std), each a (B,) tensor."""
     with inject_oracle_stats(model.revin, *stats):
         out = model.forward(context)                 # (B, PN, PL, n_quantiles)
     return out[:, -1, :, 4]                          # (B, PL)
 
 
 def mase_per_series(pred, true, context):
-    """MASE per series (B,), not averaged over the batch."""
     denom = context.diff(dim=1).abs().mean(dim=1).clamp_min(EPS)   # (B,)
     err = (pred - true).abs().mean(dim=1)                          # (B,)
     return err / denom                                             # (B,)
@@ -107,12 +82,6 @@ def mase_per_series(pred, true, context):
 
 @torch.inference_mode()
 def evaluate(model, loader, perturb):
-    """One pass over the dataset. Per series: mean and std divergences
-    between the full context and context+future (the non-stationarity
-    indices), and, for every j, dMASE(j) = MASE(perturbed stats) -
-    MASE(full-context stats), where only the statistic selected by `perturb`
-    is truncated to the first j patches. Returns mean_div (B,), std_div (B,)
-    and dmase (len(J_GRID), B)."""
     md_all = []
     sd_all = []
     dmase_all = [[] for _ in J_GRID]
@@ -174,7 +143,7 @@ def main():
 
     args = parse_args()
 
-    out = f"delta_mase_various_k_{args.perturb}.npz"
+    out = f"results/delta_mase_various_k_{args.perturb}.npz"
     if os.path.exists(out):
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
@@ -295,7 +264,7 @@ def main():
                      r"MASE(full-context stats)",
                      fontsize=13)
         suffix = "_prefix" if args.prefix_only else ""
-        out = f"delta_mase_various_k_{args.perturb}{suffix}.pdf"
+        out = f"figs/delta_mase_various_k_{args.perturb}{suffix}.pdf"
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

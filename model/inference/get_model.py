@@ -15,7 +15,7 @@ def get_model(model_cfg, train_cfg, eval_cfg):
             use_asinh=model_cfg.use_asinh,
         )
 
-    elif model_cfg.normalization_strategy in ["prefix", "vanilla", "optimal"]:
+    elif model_cfg.normalization_strategy in ["prefix", "vanilla", "singlepatch"]:
         from model.inference.modules import PatchFM
         model = PatchFM(
             normalization_strategy=model_cfg.normalization_strategy,

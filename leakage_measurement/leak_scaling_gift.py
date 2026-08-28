@@ -39,8 +39,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -63,8 +61,6 @@ class inject_oracle_stats:
 
 @torch.inference_mode()
 def rollout(model, context, n_fut, oracle=None):
-    """context: (B, C*PL). oracle: (mean,std) per-series tensors or None.
-    Autoregressive decode: predict one patch, feed the median back, repeat."""
     cur = context
     preds = []
     for _ in range(n_fut):
@@ -88,11 +84,6 @@ def mase_per_series(pred, true, context):
 
 @torch.inference_mode()
 def evaluate(model, loader):
-    """One pass over the dataset, pooling all (series x horizon) points. Per
-    point: statistic divergence of the context-only stats from the
-    context+future stats (mean- and std-based), and delta MASE =
-    MASE(context-only) - MASE(context+future). Longer horizons leave a shorter
-    context, hence a larger divergence, so the horizons together sweep the x."""
     md_all, sd_all, dmase_all = [], [], []
     for data in tqdm(loader, leave=False):
         data = data.to(DEVICE)
@@ -132,9 +123,6 @@ def evaluate(model, loader):
 
 
 def median_ci(y):
-    """~95% confidence interval of the MEDIAN via the McGill notch formula:
-    median +- 1.57*IQR/sqrt(n). Uncertainty on the line (shrinks with bin
-    size), not the raw spread."""
     med = np.median(y)
     iqr = np.percentile(y, 75) - np.percentile(y, 25)
     half = 1.57 * iqr / np.sqrt(len(y))
@@ -142,10 +130,6 @@ def median_ci(y):
 
 
 def binned(x, y, edges):
-    """Bin along the divergence axis x using `edges`. Per-bin center is the
-    MEDIAN (robust to the heavy tails of real data, and immune to the
-    minority of series whose damage comes from the OTHER divergence channel),
-    band is a ~95% CI of that median. Returns arrays sorted by x."""
     nbins = len(edges) - 1
     idx = np.clip(np.digitize(x, edges[1:-1]), 0, nbins - 1)
     xs, ys, los, his = [], [], [], []
@@ -165,7 +149,7 @@ def binned(x, y, edges):
 
 def main():
 
-    out = "leak_scaling_gift.npz"
+    out = "results/leak_scaling_gift.npz"
     if os.path.exists(out):
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
@@ -258,7 +242,7 @@ def main():
                      fontsize=13)
         # leave room between the suptitle and the axes
         fig.subplots_adjust(top=0.88)
-        out = "leak_scaling_gift.pdf"
+        out = "figs/leak_scaling_gift.pdf"
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

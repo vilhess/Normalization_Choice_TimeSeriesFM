@@ -1,4 +1,4 @@
-"trainer/global_step","optimal - train_loss","optimal - train_loss__MIN","optimal - train_loss__MAX","optimal - _step","optimal - _step__MIN","optimal - _step__MAX"
+"trainer/global_step","singlepatch - train_loss","singlepatch - train_loss__MIN","singlepatch - train_loss__MAX","singlepatch - _step","singlepatch - _step__MIN","singlepatch - _step__MAX"
 "99","0.26450151205062866","0.26450151205062866","0.26450151205062866","0","0","0"
 "199","0.23530438542366028","0.23530438542366028","0.23530438542366028","1","1","1"
 "299","0.22070015966892242","0.22070015966892242","0.22070015966892242","2","2","2"

@@ -1,30 +1,3 @@
-"""Distribution-level divergence between the truncated / full-context
-embedding clouds, for every truncation level j.
-
-Combines the two protocols: the truncated-statistics ablation of
-delta_mase_various_k.py (the model always sees the FULL 31-patch context,
-but the RevIN statistics are computed from only the first j patches) and the
-distributional comparison of embedding_regime_divergence_gift.py. For each
-strategy and each j, the two clouds of last-context-patch hidden states
-
-  * truncated:    RevIN stats from the first j patches
-  * full-context: RevIN stats from all 31 patches (standard inference, j=31)
-
-are compared with their EXACT 2-Wasserstein distance (POT's ot.emd2: full
-optimal transport via network simplex). j=31 reproduces the reference stats,
-so its W2 is 0 by construction.
-
-Latent scales differ across models, so for each (model, j) pair the two
-clouds are standardized with their pooled per-dim stats before the metric.
-Each observed value is read against a PERMUTATION NULL (random equal-size
-splits of the pooled cloud): empirical W2 has a finite-sample floor
-(convergence in N^(-1/d)), so only the excess observed-vs-null is meaningful.
-
-Cost note: one exact W2 costs an OT solve on an N x N cost matrix, and the
-null multiplies it by N_PERM; the total is len(J_GRID) * (1 + N_PERM) solves
-per model, so N_PERM is kept moderate.
-"""
-
 import os
 import torch
 import numpy as np
@@ -70,8 +43,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -94,9 +65,6 @@ class inject_oracle_stats:
 
 @torch.inference_mode()
 def last_patch_embeddings(model, x, stats):
-    """Encoder output of the LAST context patch for a whole batch, via a
-    forward hook, with the RevIN statistics forced to `stats` = (mean, std),
-    each a (B,) tensor. Shape: (B, d_model)."""
     captured = {}
     handle = model.transformer_encoder.register_forward_hook(
         lambda _m, _inp, out: captured.__setitem__("emb", out)
@@ -109,8 +77,6 @@ def last_patch_embeddings(model, x, stats):
 
 @torch.inference_mode()
 def collect_clouds(model, loader):
-    """One pass over the dataset. Returns the reference cloud (N, d_model)
-    (full-context stats) and one cloud per j (truncated stats)."""
     ref_all = []
     trunc_all = [[] for _ in J_GRID]
     C = CTX_PATCHES * PATCH_LEN
@@ -136,9 +102,6 @@ def collect_clouds(model, loader):
 
 
 def exact_w2(A, B):
-    """Exact 2-Wasserstein between two clouds (numpy (N,d) arrays), uniform
-    weights: full OT plan via network simplex on the squared-Euclidean cost
-    matrix. emd2 returns W2^2 -> sqrt."""
     a = np.ones(len(A)) / len(A)
     b = np.ones(len(B)) / len(B)
     M = ot.dist(A, B, metric="sqeuclidean")
@@ -146,8 +109,6 @@ def exact_w2(A, B):
 
 
 def permutation_null(A, B, n_perm=N_PERM, seed=SEED):
-    """W2 between random equal-size splits of the pooled cloud: the
-    finite-sample floor each observed value must be read against."""
     pooled = np.concatenate([A, B])
     n = len(A)
     rng = np.random.default_rng(seed)
@@ -160,7 +121,7 @@ def permutation_null(A, B, n_perm=N_PERM, seed=SEED):
 
 def main():
 
-    out = "embedding_regime_divergence_various_k.npz"
+    out = "results/embedding_regime_divergence_various_k.npz"
     if os.path.exists(out):
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
@@ -237,7 +198,7 @@ def main():
                             color=color, alpha=0.10, zorder=1)
         ax.set_xlabel("number of patches $j$ used for the\n"
                       "normalization statistics", fontsize=13)
-        ax.set_ylabel(r"exact $W_2$", fontsize=13)
+        ax.set_ylabel(r"$W_2$", fontsize=13)
         ax.set_xticks([j for j in j_grid if j % 5 == 0 or j == 1])
         ax.grid(True, alpha=0.25)
         ax.set_axisbelow(True)
@@ -249,12 +210,12 @@ def main():
         ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0),
                   frameon=False, fontsize=10)
 
-        ax.set_title("Exact $W_2$ between the truncated / full-context "
+        ax.set_title("$W_2$ between the truncated / full-context "
                      "distributions of the last context-patch hidden state\n"
                      "(clouds standardized per model; read each curve "
                      "against its finite-sample null)", fontsize=11)
         fig.tight_layout()
-        out = "embedding_regime_divergence_various_k.pdf"
+        out = "figs/embedding_regime_divergence_various_k.pdf"
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

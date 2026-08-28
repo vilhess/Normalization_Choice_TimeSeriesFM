@@ -1,17 +1,3 @@
-"""Embedding displacement caused by the normalization leak, on GIFT data.
-
-For each series, the LAST context patch is embedded twice (cf tsne_leakage.py):
-
-  * leak (training regime):    RevIN stats computed on context+future (mu*, sigma*)
-  * no leak (inference regime): RevIN stats computed on the context only
-
-The distance between the two embeddings measures how far the leaked statistics
-move the representation the model uses to predict the next patch. It is
-reported as a function of the mean divergence Delta mu = |mu*-mu_ctx|/sigma*.
-Two distances are saved: L2 (scale of each model's own latent space, NOT
-comparable across models) and cosine (scale-invariant, safer to overlay).
-"""
-
 import os
 import argparse
 import torch
@@ -79,9 +65,6 @@ class inject_oracle_stats:
 
 @torch.inference_mode()
 def last_patch_embeddings(model, x, stats):
-    """Encoder output of the LAST context patch for a whole batch, via a
-    forward hook, with the RevIN statistics forced to `stats` = (mean, std),
-    each a (B,) tensor. Shape: (B, d_model)."""
     captured = {}
     handle = model.transformer_encoder.register_forward_hook(
         lambda _m, _inp, out: captured.__setitem__("emb", out)
@@ -94,10 +77,6 @@ def last_patch_embeddings(model, x, stats):
 
 @torch.inference_mode()
 def evaluate(model, loader):
-    """One pass over the dataset, pooling all (series x horizon) points. Per
-    point: mean/std divergence of the context-only stats from the
-    context+future stats, and the distance (L2 and cosine) between the
-    last-context-patch embeddings under the two stat regimes."""
     md_all, sd_all, l2_all, cos_all = [], [], [], []
     for data in tqdm(loader, leave=False):
         data = data.to(DEVICE)
@@ -181,7 +160,7 @@ def main():
 
     args = parse_args()
 
-    out = "embedding_distance_gift.npz"
+    out = "results/embedding_distance_gift.npz"
     if os.path.exists(out):
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
@@ -290,7 +269,7 @@ def main():
         # leave room between the two-line suptitle and the axes
         fig.subplots_adjust(top=0.85 if len(METRICS) == 1 else 0.90)
         suffix = "_l2" if args.with_l2 else ""
-        out = f"embedding_distance_gift{suffix}.pdf"
+        out = f"figs/embedding_distance_gift{suffix}.pdf"
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

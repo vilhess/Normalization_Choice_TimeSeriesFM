@@ -1,20 +1,3 @@
-"""Embedding-level version of the truncated-statistics ablation, on GIFT data.
-
-Same protocol as delta_mase_various_k.py: the model always sees the FULL
-context (31 patches), but the RevIN statistics are computed from only the
-first j patches (j = 1..31; j=31 is the standard inference regime and serves
-as the reference). Instead of the forecast accuracy, we measure how far the
-truncated statistics move the hidden state of the last context patch:
-
-    d(j) = distance( h_P31(stats from first j patches),
-                     h_P31(full-context stats) )
-
-reported as a heatmap per model: x = mean divergence Delta mu between the
-full context and context+future, y = j, color = median distance per cell.
-Both L2 (per-model latent scale, not comparable across models) and cosine
-(scale-invariant) distances are saved; the plotted metric is selectable.
-"""
-
 import os
 import argparse
 import torch
@@ -64,8 +47,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -88,9 +69,6 @@ class inject_oracle_stats:
 
 @torch.inference_mode()
 def last_patch_embeddings(model, x, stats):
-    """Encoder output of the LAST context patch for a whole batch, via a
-    forward hook, with the RevIN statistics forced to `stats` = (mean, std),
-    each a (B,) tensor. Shape: (B, d_model)."""
     captured = {}
     handle = model.transformer_encoder.register_forward_hook(
         lambda _m, _inp, out: captured.__setitem__("emb", out)
@@ -103,11 +81,6 @@ def last_patch_embeddings(model, x, stats):
 
 @torch.inference_mode()
 def evaluate(model, loader):
-    """One pass over the dataset. Per series: mean divergence between the
-    full context and context+future (the non-stationarity index), and, for
-    every j, the L2 and cosine distances between the last-context-patch
-    hidden states under truncated (first j patches) and full-context stats.
-    Returns mean_div (B,) and l2, cos each (len(J_GRID), B)."""
     md_all = []
     l2_all = [[] for _ in J_GRID]
     cos_all = [[] for _ in J_GRID]
@@ -159,7 +132,7 @@ def main():
 
     args = parse_args()
 
-    out = "embedding_distance_various_k.npz"
+    out = "results/embedding_distance_various_k.npz"
     if os.path.exists(out):
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
@@ -274,7 +247,7 @@ def main():
                      r"$\mathrm{h}_{\mathrm{P}_{31}}^{(\text{full-context stats})}$",
                      fontsize=13)
         suffix = "_prefix" if args.prefix_only else ""
-        out = f"embedding_distance_various_k_{args.metric}{suffix}.pdf"
+        out = f"figs/embedding_distance_various_k_{args.metric}{suffix}.pdf"
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

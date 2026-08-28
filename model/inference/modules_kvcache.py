@@ -413,7 +413,7 @@ class PatchFM(nn.Module):
             self.revin = CausalPatchRevIN_KVCache(use_asinh=use_asinh)
         elif normalization_strategy == "prefix":
             self.revin = RevIN_KVCache(use_asinh=use_asinh)
-        elif normalization_strategy == "optimal":
+        elif normalization_strategy == "singlepatch":
             self.revin = RevIN_KVCache(use_asinh=use_asinh)
         else:
             raise ValueError(f"Invalid normalization strategy: {normalization_strategy}")

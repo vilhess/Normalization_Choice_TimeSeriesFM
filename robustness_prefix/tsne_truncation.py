@@ -1,25 +1,3 @@
-"""Latent-space view of the truncated-statistics ablation.
-
-For each normalization strategy, embed the SAME context under statistics
-computed from only its first j patches (j = 1..31; the model always sees the
-FULL 31-patch context, cf delta_mase_various_k.py) and watch the trajectory
-of the last-context-patch embedding as j grows back to the full window:
-
-  * j < 31: truncated stats  (mu, sigma from the first j patches)
-  * j = 31: full-context stats -- the standard inference regime, marked with
-            a star: it is the REFERENCE every trajectory should reach.
-
-A few controlled sinusoids "sin(x) + x" (cf ../leakage_measurement/
-tsne_leakage.py), one per non-stationarity level; level=0 is a stationary
-control for which even vanilla RevIN should not move. If the all-or-nothing
-sensitivity seen on dMASE lives in the representation, the vanilla points
-for j < 31 should form a compact cluster AWAY from the star and only jump
-onto it at j=31; a robust representation (Prefix@k) should keep all 31
-points stacked on the star. One t-SNE is fit PER strategy: latent spaces of
-different checkpoints are not mutually comparable, so panels are only
-comparable within themselves.
-"""
-
 import torch
 import numpy as np
 import matplotlib
@@ -72,9 +50,6 @@ LABEL_STYLE = {
 
 
 def make_series(length, level, seed=SEED):
-    """Increasing sinusoid "sin(x) + x", one series (1, L). `level` scales
-    BOTH the trend slope (increasing shape) and the amplitude envelope
-    (increasing magnitude); level=0 is a stationary sine."""
     g = torch.Generator().manual_seed(seed)
     x = torch.linspace(0.0, X_MAX, length)
     amplitude = 1.0 + level * AMP_GROWTH * x          # growing envelope
@@ -89,8 +64,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -113,9 +86,6 @@ class inject_oracle_stats:
 
 @torch.no_grad()
 def extract_last_patch_embedding(model, signal, stats):
-    """Encoder output of the LAST context patch (the vector used to predict
-    the target patch) via a forward hook, with the RevIN statistics forced to
-    `stats` = (mean, std), each a (B,) tensor. Shape: (d_model,)."""
     captured = {}
     handle = model.transformer_encoder.register_forward_hook(
         lambda _m, _inp, out: captured.__setitem__("emb", out)
@@ -184,7 +154,7 @@ def main():
                   r"$\Delta\mu(j) = |\mu_{1:j}-\mu_{1:31}|"
                   r"\,/\,\sigma_{1:31}$",
                   fontsize=13)
-    fig0.savefig("tsne_truncation_signals.pdf", dpi=130, bbox_inches="tight")
+    fig0.savefig("figs/tsne_truncation_signals.pdf", dpi=130, bbox_inches="tight")
 
     # ---- 2. per strategy: last-patch trajectory vs j (t-SNE row, PCA row) ---
     cmap = plt.cm.viridis
@@ -257,7 +227,7 @@ def main():
                   r"$\qquad\Delta\mu(j) = |\mu_{1:j}-\mu_{1:31}|"
                   r"\,/\,\sigma_{1:31}$",
                   fontsize=16, fontweight="bold")
-    fig1.savefig("tsne_truncation.pdf", dpi=130, bbox_inches="tight")
+    fig1.savefig("figs/tsne_truncation.pdf", dpi=130, bbox_inches="tight")
 
     print("saved plots -> tsne_truncation_signals.pdf, tsne_truncation.pdf")
 

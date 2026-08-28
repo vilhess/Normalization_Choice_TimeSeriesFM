@@ -1,4 +1,4 @@
-"trainer/global_step","optimalsinh - train_loss","optimalsinh - train_loss__MIN","optimalsinh - train_loss__MAX","optimalsinh - _step","optimalsinh - _step__MIN","optimalsinh - _step__MAX"
+"trainer/global_step","singlepatchsinh - train_loss","singlepatchsinh - train_loss__MIN","singlepatchsinh - train_loss__MAX","singlepatchsinh - _step","singlepatchsinh - _step__MIN","singlepatchsinh - _step__MAX"
 "99","0.26956817507743835","0.26956817507743835","0.26956817507743835","0","0","0"
 "199","0.2394852340221405","0.2394852340221405","0.2394852340221405","1","1","1"
 "299","0.22135809063911438","0.22135809063911438","0.22135809063911438","2","2","2"

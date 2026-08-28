@@ -165,6 +165,7 @@ def main():
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
     else:
+        os.makedirs("results", exist_ok=True)
         print(f"running experiment -> {out}")
         print(f"device: {DEVICE}")
         print(f"seq={SEQ_PATCHES}p  horizons={HORIZONS}  patch_len={PATCH_LEN} \n")
@@ -270,6 +271,7 @@ def main():
         fig.subplots_adjust(top=0.85 if len(METRICS) == 1 else 0.90)
         suffix = "_l2" if args.with_l2 else ""
         out = f"figs/embedding_distance_gift{suffix}.pdf"
+        os.makedirs('figs', exist_ok=True)
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

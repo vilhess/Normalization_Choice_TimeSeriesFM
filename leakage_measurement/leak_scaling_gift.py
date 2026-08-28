@@ -154,6 +154,7 @@ def main():
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
     else:
+        os.makedirs("results", exist_ok=True)
         print(f"running experiment -> {out}")
         print(f"device: {DEVICE}")
         print(f"seq={SEQ_PATCHES}p  horizons={HORIZONS}  patch_len={PATCH_LEN} \n")
@@ -243,6 +244,7 @@ def main():
         # leave room between the suptitle and the axes
         fig.subplots_adjust(top=0.88)
         out = "figs/leak_scaling_gift.pdf"
+        os.makedirs('figs', exist_ok=True)
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

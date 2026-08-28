@@ -126,6 +126,7 @@ def main():
         print(f"loading existing results -> {out}")
         results = dict(np.load(out))
     else:
+        os.makedirs("results", exist_ok=True)
         print(f"running experiment -> {out}")
         print(f"device: {DEVICE}")
         print(f"seq={SEQ_PATCHES}p  ctx={CTX_PATCHES}p  patch_len={PATCH_LEN}  "
@@ -216,6 +217,7 @@ def main():
                      "against its finite-sample null)", fontsize=11)
         fig.tight_layout()
         out = "figs/embedding_regime_divergence_various_k.pdf"
+        os.makedirs('figs', exist_ok=True)
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

@@ -5,6 +5,7 @@ matplotlib.use("Agg")  # no display, save figures only
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
+import os
 
 import sys
 sys.path.append('../')
@@ -167,6 +168,7 @@ def main():
                   r"$\Delta\sigma = |\log(\sigma_{\text{context+future}}/"
                   r"\sigma_{\text{context-only}})|$",
                   fontsize=13)
+    os.makedirs('figs', exist_ok=True)
     fig0.savefig("figs/tsne_leakage_signals.pdf", dpi=130, bbox_inches="tight")
 
     # ---- 2. per strategy: last-patch trajectory vs ns (t-SNE row, PCA row) --
@@ -235,6 +237,7 @@ def main():
                   r"$\qquad\Delta\mu = |\mu_{\text{context+future}}-"
                   r"\mu_{\text{context-only}}|\,/\,\sigma_{\text{context+future}}$",
                   fontsize=16, fontweight="bold")
+    
     fig1.savefig("figs/tsne_leakage.pdf", dpi=130, bbox_inches="tight")
 
     print("saved plots -> tsne_leakage_signals.pdf, tsne_leakage.pdf")

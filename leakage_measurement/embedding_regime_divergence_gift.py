@@ -4,9 +4,9 @@ import numpy as np
 import ot
 from tqdm import tqdm
 
-#import sys 
-#sys.path.append('../')
-from dataset import GiftEvalPretrain
+import sys 
+sys.path.append('../')
+#from dataset import GiftEvalPretrain
 from configs import PatchFMConfig, TrainConfig, EvalConfig
 from model.inference import get_model
 
@@ -129,6 +129,7 @@ def main():
             print(f"{label:<14} W2={obs:.4f}  "
                   f"(null {null.mean():.4f} +- {null.std():.4f})")
     else:
+        os.makedirs("results", exist_ok=True)
         print(f"running experiment -> {out}")
         print(f"device: {DEVICE}")
         print(f"seq={SEQ_PATCHES}p  horizon={HORIZON}  patch_len={PATCH_LEN}\n")
@@ -208,6 +209,7 @@ def main():
                      "its finite-sample null)", fontsize=11)
         fig.tight_layout()
         out = "figs/embedding_regime_divergence_gift.pdf"
+        os.makedirs('figs', exist_ok=True)
         fig.savefig(out, dpi=130, bbox_inches="tight")
         print(f"saved plot -> {out}")
     except Exception as e:

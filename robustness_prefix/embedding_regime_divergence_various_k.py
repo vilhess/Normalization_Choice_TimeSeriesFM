@@ -206,10 +206,10 @@ def main():
         for spine in ("top", "right"):
             ax.spines[spine].set_visible(False)
         ax.plot([], [], color="0.3", ls="--",
-                label="permutation null (mean $\\pm$ 2 sd)")
+                label="permutation null\n(mean $\\pm$ 2 sd)")
         # legend outside the axes: the curves span the whole plotting area
-        ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0),
-                  frameon=False, fontsize=10)
+        ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5),
+                  frameon=False, fontsize=14)
 
         ax.set_title("$W_2$ between the truncated / full-context "
                      "distributions of the last context-patch hidden state\n"

@@ -13,17 +13,16 @@
 | Figure 8 | `python embedding_distance_gift.py` | `leakage_measurement/` |
 | Table 3 | `python embedding_regime_divergence_gift.py` | `leakage_measurement/` |
 | Figure 9/10 | `python delta_mase_various_k.py` | `robustness_prefix/` |
-| Figure 11 | `python embedding_distance_various_k.py` | `robustness_prefix/` |
-| Figure 12 | `python embedding_regime_divergence_various_k.py` | `robustness_prefix/` |
+| Figure 11 | `python embedding_regime_divergence_various_k.py` | `robustness_prefix/` |
 | Table 4 | `notebooks/ranking.ipynb` | repo root |
-| Figure 13 | `traininglosses.ipynb` | `small_model_results/` or `mid_model_results/` |
-| Figure 14 | `skillscores.ipynb` | `small_model_results/` or `mid_model_results/` |
+| Figure 12 | `traininglosses.ipynb` | `small_model_results/` or `mid_model_results/` |
+| Figure 13 | `skillscores.ipynb` | `small_model_results/` or `mid_model_results/` |
 | Table 6 | `notebooks/ranking.ipynb` | repo root |
 | Table 7 | `python speed_comparisons.py` | `kv_cache_measurements/` |
-| Figure 15 | `notebooks/ranking.ipynb` | repo root |
-| Figure 16/17 | `python tsne_leakage.py` | `leakage_measurement/` |
-| Figure 18/19 | `python delta_mase_various_k.py` | `robustness_prefix/` |
-| Figure 20/21 | `python delta_mase_various_k.py` | `robustness_prefix/` |
+| Figure 14 | `notebooks/ranking.ipynb` | repo root |
+| Figure 15/16 | `python tsne_leakage.py` | `leakage_measurement/` |
+| Figure 17/18 | `python delta_mase_various_k.py` | `robustness_prefix/` |
+| Figure 10/20 | `python delta_mase_various_k.py` | `robustness_prefix/` |
 
 > `delta_mase_various_k.py` takes a `--perturb {mean,std,both}` flag and produces a different figure pair for each value — run it once per value to regenerate Figures 9/10, 18/19, and 20/21. It also accepts `--prefix-only`, which restricts the plot to prefix-based normalization strategies (all models are still computed and saved to the `.npz` regardless).
 

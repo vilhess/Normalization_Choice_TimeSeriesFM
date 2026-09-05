@@ -15,12 +15,12 @@ EPS = 1e-5
 
 PATCH_LEN = PatchFMConfig().patch_len
 SEQ_PATCHES = 32
-CTX_PATCHES = SEQ_PATCHES - 1     # full context; the last patch is predicted
-J_GRID = list(range(1, CTX_PATCHES + 1))   # patches used for the stats
+CTX_PATCHES = SEQ_PATCHES - 1  
+J_GRID = list(range(1, CTX_PATCHES + 1))
 BATCH_SIZE = 1024
 SEED = 0
 
-N_PERM = 10                     # permutation splits for the null (per j!)
+N_PERM = 10                   
 
 MODELS = [
     ("vanilla", True,  None),
@@ -72,7 +72,7 @@ def last_patch_embeddings(model, x, stats):
     with inject_oracle_stats(model.revin, *stats):
         model.forward(x)
     handle.remove()
-    return captured["emb"][:, -1, :]                     # (B, d_model)
+    return captured["emb"][:, -1, :]                   
 
 
 @torch.inference_mode()
@@ -85,13 +85,11 @@ def collect_clouds(model, loader):
         context = data[:, :C]
         ctx_p = to_patches(context)
 
-        # reference: hidden state under standard inference stats (j = 31)
         r_mean = ctx_p.mean(dim=(1, 2))
         r_std = ctx_p.std(dim=(1, 2)) + EPS
         h_ref = last_patch_embeddings(model, context, (r_mean, r_std))
         ref_all.append(h_ref.float().cpu())
 
-        # ablation: stats truncated to the first j patches
         for i, j in enumerate(J_GRID):
             t_mean = ctx_p[:, :j].mean(dim=(1, 2))
             t_std = ctx_p[:, :j].std(dim=(1, 2)) + EPS
@@ -140,7 +138,7 @@ def main():
             normalize=True,
             max_samples=20
         )
-        print(f"length of dataset: {len(dataset)}") # 3097
+        print(f"length of dataset: {len(dataset)}") 
         loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE,
                                              shuffle=False, num_workers=10)
         results = {"j_grid": np.array(J_GRID)}
@@ -158,8 +156,7 @@ def main():
             w2_obs = np.zeros(len(J_GRID))
             w2_null = np.zeros((len(J_GRID), N_PERM))
             for i, j in enumerate(tqdm(J_GRID, desc=label, leave=False)):
-                # per-(model, j) standardization with pooled stats -> metric
-                # lives on a common scale, comparable across latent spaces
+
                 pooled = torch.cat([e_trunc[i], e_ref]).double()
                 m, s = pooled.mean(0), pooled.std(0) + EPS
                 A = ((e_trunc[i].double() - m) / s).numpy()
@@ -190,7 +187,7 @@ def main():
             null = results[f"w2null_{label}"]
             ax.plot(j_grid, obs, marker="o", ms=4, color=color,
                     label=disp, zorder=3)
-            # permutation null: mean +- 2 sd, the finite-sample floor
+
             ax.plot(j_grid, null.mean(axis=1), color=color, ls="--",
                     lw=1.0, alpha=0.6, zorder=2)
             ax.fill_between(j_grid,
@@ -207,7 +204,7 @@ def main():
             ax.spines[spine].set_visible(False)
         ax.plot([], [], color="0.3", ls="--",
                 label="permutation null\n(mean $\\pm$ 2 sd)")
-        # legend outside the axes: the curves span the whole plotting area
+
         ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5),
                   frameon=False, fontsize=14)
 

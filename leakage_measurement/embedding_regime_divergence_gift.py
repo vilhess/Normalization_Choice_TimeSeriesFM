@@ -71,7 +71,7 @@ def last_patch_embeddings(model, x, stats):
     with inject_oracle_stats(model.revin, *stats):
         model.forward(x)
     handle.remove()
-    return captured["emb"][:, -1, :]                     # (B, d_model)
+    return captured["emb"][:, -1, :]             
 
 
 @torch.inference_mode()
@@ -142,7 +142,7 @@ def main():
             normalize=True,
             max_samples=20
         )
-        print(f"length of dataset: {len(dataset)}") # 3097
+        print(f"length of dataset: {len(dataset)}") 
         loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE,
                                              shuffle=False, num_workers=10)
         results = {}
@@ -157,8 +157,6 @@ def main():
             if DEVICE == "cuda":
                 torch.cuda.empty_cache()
 
-            # per-model standardization with pooled stats -> metric lives on
-            # a common scale, comparable across latent spaces
             pooled = torch.cat([e_leak, e_nolk]).double()
             m, s = pooled.mean(0), pooled.std(0) + EPS
             A = ((e_leak.double() - m) / s).numpy()
@@ -186,7 +184,6 @@ def main():
             obs = float(results[f"w2_{label}"])
             null = results[f"w2null_{label}"]
             ax.bar(i, obs, width=0.6, color=color, zorder=3)
-            # permutation null: mean tick +- 2 sd, the finite-sample floor
             ax.errorbar(i, null.mean(), yerr=2 * null.std(), color="0.15",
                         fmt="_", ms=18, capsize=5, lw=1.2, zorder=4)
             ax.annotate(f"{obs:.3g}", (i, obs), ha="center", va="bottom",

@@ -15,8 +15,8 @@ EPS = 1e-5
 
 PATCH_LEN = PatchFMConfig().patch_len
 SEQ_PATCHES = 32
-CTX_PATCHES = SEQ_PATCHES - 1     # full context; the last patch is predicted
-J_GRID = list(range(1, CTX_PATCHES + 1))   # patches used for the stats
+CTX_PATCHES = SEQ_PATCHES - 1    
+J_GRID = list(range(1, CTX_PATCHES + 1))  
 BATCH_SIZE = 1024
 NS_BINS = 5
 SEED = 0
@@ -70,14 +70,14 @@ class inject_oracle_stats:
 @torch.inference_mode()
 def predict_next_patch(model, context, stats):
     with inject_oracle_stats(model.revin, *stats):
-        out = model.forward(context)                 # (B, PN, PL, n_quantiles)
-    return out[:, -1, :, 4]                          # (B, PL)
+        out = model.forward(context)              
+    return out[:, -1, :, 4]                       
 
 
 def mase_per_series(pred, true, context):
-    denom = context.diff(dim=1).abs().mean(dim=1).clamp_min(EPS)   # (B,)
-    err = (pred - true).abs().mean(dim=1)                          # (B,)
-    return err / denom                                             # (B,)
+    denom = context.diff(dim=1).abs().mean(dim=1).clamp_min(EPS)   
+    err = (pred - true).abs().mean(dim=1)                          
+    return err / denom                                             
 
 
 @torch.inference_mode()
@@ -92,24 +92,21 @@ def evaluate(model, loader, perturb):
         true_fut = data[:, C:]
         ctx_p = to_patches(context)
 
-        # non-stationarity indices: full context vs context+future
         full_p = to_patches(data)
         o_mean = full_p.mean(dim=(1, 2))
         o_std = full_p.std(dim=(1, 2)) + EPS
         c_mean = ctx_p.mean(dim=(1, 2))
         c_std = ctx_p.std(dim=(1, 2)) + EPS
-        mean_div = (o_mean - c_mean).abs() / o_std               # (B,)
-        std_div = (o_std / c_std).log().abs()                    # (B,)
+        mean_div = (o_mean - c_mean).abs() / o_std          
+        std_div = (o_std / c_std).log().abs()               
         md_all.append(mean_div.cpu().numpy())
         sd_all.append(std_div.cpu().numpy())
 
-        # reference: standard inference stats (full context, j = 31)
         r_mean = ctx_p.mean(dim=(1, 2))
         r_std = ctx_p.std(dim=(1, 2)) + EPS
         ref = predict_next_patch(model, context, (r_mean, r_std))
-        mase_ref = mase_per_series(ref, true_fut, context)       # (B,)
+        mase_ref = mase_per_series(ref, true_fut, context)     
 
-        # ablation: the selected statistic truncated to the first j patches
         for i, j in enumerate(J_GRID):
             t_mean = ctx_p[:, :j].mean(dim=(1, 2))
             t_std = ctx_p[:, :j].std(dim=(1, 2)) + EPS
@@ -122,7 +119,7 @@ def evaluate(model, loader, perturb):
             dmase_all[i].append(dmase.cpu().numpy())
 
     return (np.concatenate(md_all), np.concatenate(sd_all),
-            np.stack([np.concatenate(d) for d in dmase_all]))    # (J, B)
+            np.stack([np.concatenate(d) for d in dmase_all])) 
 
 
 def parse_args():
@@ -171,7 +168,6 @@ def main():
             label = f"{strat}{'+asinh' if asinh else ''}"
             model = get_model(cfg, train_cfg, eval_cfg).to(DEVICE).eval()
             md, sd, dmase = evaluate(model, loader, args.perturb)
-            # the divergences are model-free -> store once, dmase per model
             results.setdefault("mean_div", md)
             results.setdefault("std_div", sd)
             results[f"dmase_{label}"] = dmase
@@ -190,8 +186,7 @@ def main():
         import matplotlib.pyplot as plt
 
         j_grid = results["j_grid"]
-        # bin along the divergence of the statistic actually perturbed:
-        # Delta sigma when only sigma is truncated, Delta mu otherwise
+
         div_key = "std_div" if args.perturb == "std" else "mean_div"
         xlabel = r"$\Delta\sigma$" if div_key == "std_div" else r"$\Delta\mu$"
         if div_key not in results:
@@ -200,7 +195,7 @@ def main():
             div_key, xlabel = "mean_div", r"$\Delta\mu$"
         div = results[div_key]
         # uniformly-spaced bins over the divergence range; drop the heavy
-        # tail beyond the 98th pct so bins stay populated and truly uniform
+        # tail beyond the 98th pct so bins stay populated
         xhi = np.percentile(div, 98)
         keep = div <= xhi
         div_k = div[keep]
@@ -209,15 +204,13 @@ def main():
         idx = np.clip(np.digitize(div_k, edges[1:-1]), 0, NS_BINS - 1)
         bin_centers = [np.median(div_k[idx == b]) for b in range(NS_BINS)]
 
-        # models to display (all results stay in the npz regardless)
         plot_models = ([m for m in MODELS if m[0] == "prefix"]
                        if args.prefix_only else MODELS)
 
-        # per-model grid of median dMASE per (j, divergence bin) cell
         grids = {}
         for strat, asinh, pt in plot_models:
             label = f"{strat}{'+asinh' if asinh else ''}"
-            dmase = results[f"dmase_{label}"][:, keep]           # (J, B)
+            dmase = results[f"dmase_{label}"][:, keep]       
             grid = np.zeros((len(j_grid), NS_BINS))
             for b in range(NS_BINS):
                 m = idx == b
@@ -252,9 +245,7 @@ def main():
                               "normalization statistics", fontsize=13)
         for ax in axes.flat[n:]:
             ax.axis("off")
-        # reserve headroom for the suptitle BEFORE adding the colorbar, which
-        # steals its own space from the axes (adjusting after would move the
-        # axes back over the colorbar)
+
         fig.subplots_adjust(top=0.88 if nrows > 1 else 0.78)
         cbar = fig.colorbar(im, ax=axes.ravel().tolist(),
                             fraction=0.035, pad=0.03)

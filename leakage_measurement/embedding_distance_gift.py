@@ -41,8 +41,6 @@ def to_patches(x):
 
 
 class inject_oracle_stats:
-    """Context manager forcing a (global) RevIN to use FIXED per-series stats.
-    mean/std are (B,) tensors."""
     def __init__(self, revin, mean, std):
         self.revin = revin
         self.mean = mean
@@ -72,7 +70,7 @@ def last_patch_embeddings(model, x, stats):
     with inject_oracle_stats(model.revin, *stats):
         model.forward(x)
     handle.remove()
-    return captured["emb"][:, -1, :]                     # (B, d_model)
+    return captured["emb"][:, -1, :]                     
 
 
 @torch.inference_mode()
@@ -81,8 +79,6 @@ def evaluate(model, loader):
     for data in tqdm(loader, leave=False):
         data = data.to(DEVICE)
 
-        # context+future stats (mu*, sigma*) -- the future-informed leak,
-        # computed over the full window so independent of the horizon
         full_p = to_patches(data)
         o_mean = full_p.mean(dim=(1, 2))
         o_std = full_p.std(dim=(1, 2)) + EPS
@@ -91,19 +87,16 @@ def evaluate(model, loader):
             C = (SEQ_PATCHES - H) * PATCH_LEN
             context = data[:, :C]
 
-            # context-only stats -- what inference actually sees
             ctx_p = to_patches(context)
             c_mean = ctx_p.mean(dim=(1, 2))
             c_std = ctx_p.std(dim=(1, 2)) + EPS
 
-            # standardized, dimensionally-clean divergences
-            mean_div = (o_mean - c_mean).abs() / o_std       # (B,)
-            std_div = (o_std / c_std).log().abs()            # (B,)
+            mean_div = (o_mean - c_mean).abs() / o_std   
+            std_div = (o_std / c_std).log().abs()        
 
-            # same context embedded under the two stat regimes
             e_leak = last_patch_embeddings(model, context, (o_mean, o_std))
             e_nolk = last_patch_embeddings(model, context, (c_mean, c_std))
-            d_l2 = (e_leak - e_nolk).norm(dim=1)             # (B,)
+            d_l2 = (e_leak - e_nolk).norm(dim=1)        
             d_cos = 1.0 - F.cosine_similarity(e_leak, e_nolk, dim=1)
 
             md_all.append(mean_div.cpu().numpy())
@@ -126,9 +119,6 @@ def parse_args():
 
 
 def median_ci(y):
-    """~95% confidence interval of the MEDIAN via the McGill notch formula:
-    median +- 1.57*IQR/sqrt(n). Narrow for large bins (shrinks as 1/sqrt(n)),
-    unlike an IQR band which shows spread; costless, no resampling."""
     med = np.median(y)
     iqr = np.percentile(y, 75) - np.percentile(y, 25)
     half = 1.57 * iqr / np.sqrt(len(y))
@@ -136,9 +126,6 @@ def median_ci(y):
 
 
 def binned(x, y, edges):
-    """Bin along the divergence axis x using `edges`. Robust to the heavy
-    tails of real data: per-bin center is the MEDIAN, with a ~95% CI of that
-    median (McGill notch formula). Returns arrays sorted by x."""
     nbins = len(edges) - 1
     idx = np.clip(np.digitize(x, edges[1:-1]), 0, nbins - 1)
     xs, ys, los, his = [], [], [], []
@@ -187,7 +174,6 @@ def main():
             label = f"{strat}{'+asinh' if asinh else ''}"
             model = get_model(cfg, train_cfg, eval_cfg).to(DEVICE).eval()
             md, sd, d_l2, d_cos = evaluate(model, loader)
-            # divergences are model-free -> store once, distances per model
             results.setdefault("mean_div", md)
             results.setdefault("std_div", sd)
             results[f"l2_{label}"] = d_l2
@@ -205,10 +191,7 @@ def main():
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-
-        # columns = divergence driving the x-axis; rows = distance metric.
-        # cosine only by default: scale-invariant, comparable across models
-        # (the L2 lives in each model's own latent scale)
+        
         DIVS = [
             ("mean_div", r"$\Delta\mu$"),
             ("std_div",  r"$\Delta\sigma$"),
@@ -226,8 +209,7 @@ def main():
                 ax = axes[r, c]
                 div = results[dkey]
                 # uniformly-spaced bins over the divergence range; drop the
-                # heavy tail beyond the 98th pct so bins stay populated and
-                # truly uniform
+                # heavy tail beyond the 98th pct so bins stay populated
                 xhi = np.percentile(div, 98)
                 keep = div <= xhi
                 div_k = div[keep]
@@ -267,7 +249,6 @@ def main():
                      r"$\mathrm{h}_{\mathrm{P}_{31}}^{(\text{context-only})}$"
                      r"  (median per bin, band = 95% CI of the median)",
                      fontsize=13)
-        # leave room between the two-line suptitle and the axes
         fig.subplots_adjust(top=0.85 if len(METRICS) == 1 else 0.90)
         suffix = "_l2" if args.with_l2 else ""
         out = f"figs/embedding_distance_gift{suffix}.pdf"

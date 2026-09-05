@@ -16,8 +16,8 @@ EPS = 1e-5
 
 PATCH_LEN = PatchFMConfig().patch_len
 SEQ_PATCHES = 32
-CTX_PATCHES = SEQ_PATCHES - 1     # full context; the last patch is predicted
-J_GRID = list(range(1, CTX_PATCHES + 1))   # patches used for the stats
+CTX_PATCHES = SEQ_PATCHES - 1    
+J_GRID = list(range(1, CTX_PATCHES + 1))   
 BATCH_SIZE = 1024
 NS_BINS = 5
 SEED = 0
@@ -76,7 +76,7 @@ def last_patch_embeddings(model, x, stats):
     with inject_oracle_stats(model.revin, *stats):
         model.forward(x)
     handle.remove()
-    return captured["emb"][:, -1, :]                     # (B, d_model)
+    return captured["emb"][:, -1, :]                    
 
 
 @torch.inference_mode()
@@ -90,20 +90,17 @@ def evaluate(model, loader):
         context = data[:, :C]
         ctx_p = to_patches(context)
 
-        # non-stationarity index: full context vs context+future
         full_p = to_patches(data)
         o_mean = full_p.mean(dim=(1, 2))
         o_std = full_p.std(dim=(1, 2)) + EPS
         c_mean = ctx_p.mean(dim=(1, 2))
-        mean_div = (o_mean - c_mean).abs() / o_std               # (B,)
+        mean_div = (o_mean - c_mean).abs() / o_std          
         md_all.append(mean_div.cpu().numpy())
 
-        # reference: hidden state under standard inference stats (j = 31)
         r_mean = ctx_p.mean(dim=(1, 2))
         r_std = ctx_p.std(dim=(1, 2)) + EPS
         h_ref = last_patch_embeddings(model, context, (r_mean, r_std))
 
-        # ablation: stats truncated to the first j patches
         for i, j in enumerate(J_GRID):
             t_mean = ctx_p[:, :j].mean(dim=(1, 2))
             t_std = ctx_p[:, :j].std(dim=(1, 2)) + EPS
@@ -113,8 +110,8 @@ def evaluate(model, loader):
                 (1.0 - F.cosine_similarity(h_j, h_ref, dim=1)).cpu().numpy())
 
     return (np.concatenate(md_all),
-            np.stack([np.concatenate(d) for d in l2_all]),       # (J, B)
-            np.stack([np.concatenate(d) for d in cos_all]))      # (J, B)
+            np.stack([np.concatenate(d) for d in l2_all]),     
+            np.stack([np.concatenate(d) for d in cos_all]))    
 
 
 def parse_args():
@@ -160,7 +157,6 @@ def main():
             label = f"{strat}{'+asinh' if asinh else ''}"
             model = get_model(cfg, train_cfg, eval_cfg).to(DEVICE).eval()
             md, d_l2, d_cos = evaluate(model, loader)
-            # the divergence is model-free -> store once, distances per model
             results.setdefault("mean_div", md)
             results[f"l2_{label}"] = d_l2
             results[f"cos_{label}"] = d_cos
@@ -181,7 +177,7 @@ def main():
         j_grid = results["j_grid"]
         div = results["mean_div"]
         # uniformly-spaced bins over the divergence range; drop the heavy
-        # tail beyond the 98th pct so bins stay populated and truly uniform
+        # tail beyond the 98th pct so bins stay populated
         xhi = np.percentile(div, 98)
         keep = div <= xhi
         div_k = div[keep]
@@ -190,15 +186,13 @@ def main():
         idx = np.clip(np.digitize(div_k, edges[1:-1]), 0, NS_BINS - 1)
         bin_centers = [np.median(div_k[idx == b]) for b in range(NS_BINS)]
 
-        # models to display (all results stay in the npz regardless)
         plot_models = ([m for m in MODELS if m[0] == "prefix"]
                        if args.prefix_only else MODELS)
 
-        # per-model grid of median distance per (j, divergence bin) cell
         grids = {}
         for strat, asinh, pt in plot_models:
             label = f"{strat}{'+asinh' if asinh else ''}"
-            dist = results[f"{args.metric}_{label}"][:, keep]     # (J, B)
+            dist = results[f"{args.metric}_{label}"][:, keep]     
             grid = np.zeros((len(j_grid), NS_BINS))
             for b in range(NS_BINS):
                 m = idx == b
@@ -233,9 +227,7 @@ def main():
                               "normalization statistics", fontsize=13)
         for ax in axes.flat[n:]:
             ax.axis("off")
-        # reserve headroom for the suptitle BEFORE adding the colorbar, which
-        # steals its own space from the axes (adjusting after would move the
-        # axes back over the colorbar)
+
         fig.subplots_adjust(top=0.88 if nrows > 1 else 0.78)
         cbar = fig.colorbar(im, ax=axes.ravel().tolist(),
                             fraction=0.035, pad=0.03)

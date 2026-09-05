@@ -66,20 +66,19 @@ def rollout(model, context, n_fut, oracle=None):
     for _ in range(n_fut):
         if oracle is not None:
             with inject_oracle_stats(model.revin, *oracle):
-                out = model.forward(cur)             # (B, PN, PL, n_quantiles)
+                out = model.forward(cur)            
         else:
             out = model.forward(cur)
-        nxt = out[:, -1, :, 4]                        # median of the next patch
+        nxt = out[:, -1, :, 4]                        
         preds.append(nxt)
         cur = torch.cat([cur, nxt], dim=1)
-    return torch.cat(preds, dim=1)                    # (B, H*PL)
+    return torch.cat(preds, dim=1)              
 
 
 def mase_per_series(pred, true, context):
-    """MASE per series (B,), not averaged over the batch."""
-    denom = context.diff(dim=1).abs().mean(dim=1).clamp_min(EPS)   # (B,)
-    err = (pred - true).abs().mean(dim=1)                          # (B,)
-    return err / denom                                             # (B,)
+    denom = context.diff(dim=1).abs().mean(dim=1).clamp_min(EPS)   
+    err = (pred - true).abs().mean(dim=1)                          
+    return err / denom                                             
 
 
 @torch.inference_mode()
@@ -88,8 +87,6 @@ def evaluate(model, loader):
     for data in tqdm(loader, leave=False):
         data = data.to(DEVICE)
 
-        # context+future stats (mu*, sigma*) -- the future-informed leak,
-        # computed over the full window so independent of the horizon
         full_p = to_patches(data)
         o_mean = full_p.mean(dim=(1, 2))
         o_std = full_p.std(dim=(1, 2)) + EPS
@@ -99,16 +96,13 @@ def evaluate(model, loader):
             context = data[:, :C]
             true_fut = data[:, C:]
 
-            # context-only stats -- what inference actually sees
             ctx_p = to_patches(context)
             c_mean = ctx_p.mean(dim=(1, 2))
             c_std = ctx_p.std(dim=(1, 2)) + EPS
 
-            # standardized, dimensionally-clean divergences
-            mean_div = (o_mean - c_mean).abs() / o_std       # (B,)
-            std_div = (o_std / c_std).log().abs()            # (B,)
+            mean_div = (o_mean - c_mean).abs() / o_std      
+            std_div = (o_std / c_std).log().abs()           
 
-            # forecasts: honest (context-only) vs oracle (context+future)
             honest = rollout(model, context, H, oracle=None)
             oracle = rollout(model, context, H, oracle=(o_mean, o_std))
             dmase = (mase_per_series(honest, true_fut, context)
@@ -176,7 +170,6 @@ def main():
             label = f"{strat}{'+asinh' if asinh else ''}"
             model = get_model(cfg, train_cfg, eval_cfg).to(DEVICE).eval()
             md, sd, dmase = evaluate(model, loader)
-            # divergences are model-free -> store once, dmase per model
             results.setdefault("mean_div", md)
             results.setdefault("std_div", sd)
             results[f"dmase_{label}"] = dmase
@@ -205,7 +198,7 @@ def main():
         for k, (ax, (dkey, xlabel)) in enumerate(zip(axes, PANELS)):
             div = results[dkey]
             # uniformly-spaced bins over the divergence range; drop the heavy
-            # tail beyond the 98th pct so bins stay populated and truly uniform
+            # tail beyond the 98th pct so bins stay populated
             xhi = np.percentile(div, 98)
             keep = div <= xhi
             div_k = div[keep]
@@ -220,14 +213,10 @@ def main():
                 ax.plot(xs, ys, marker="o", ms=5, color=color,
                         label=disp, zorder=3)
                 ax.fill_between(xs, lo, hi, color=color, alpha=0.18, zorder=1)
-                # y-limits driven by the medians only: the min-max envelope of
-                # heavy-tailed data would wreck the scale (bands may clip)
                 yvals.append(ys); xall.append(xs)
             ax.axhline(0.0, color="0.7", lw=0.8, zorder=0)
             ax.set_xlabel(xlabel, fontsize=14)
             ax.set_ylabel(r"median $\Delta$MASE (benefit of the leak)", fontsize=14)
-            # per-panel limits from the plotted bin medians (mu and sigma keep
-            # independent y-scales)
             xa = np.concatenate(xall)
             xpad = 0.03 * (xa.max() - xa.min())
             ax.set_xlim(xa.min() - xpad, xa.max() + xpad)
@@ -241,7 +230,6 @@ def main():
         fig.suptitle("The benefit of the leak scales with the statistic divergence "
                      r"(median $\Delta$MASE per bin, band = 95% CI of the median)",
                      fontsize=13)
-        # leave room between the suptitle and the axes
         fig.subplots_adjust(top=0.88)
         out = "figs/leak_scaling_gift.pdf"
         os.makedirs('figs', exist_ok=True)
